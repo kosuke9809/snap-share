@@ -1,0 +1,1 @@
+Please process the task list using /.claude/rules/process-task-list.md
