@@ -42,6 +42,15 @@ func main() {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
+	// Seed database with sample data (skip in production)
+	if os.Getenv("SKIP_SEED") != "true" {
+		if err := database.Seed(db); err != nil {
+			log.Fatal("Failed to seed database:", err)
+		}
+	} else {
+		log.Println("Skipping database seeding (SKIP_SEED=true)")
+	}
+
 	// Initialize R2 service
 	r2Service, err := r2.NewR2Service(cfg.R2AccountID, cfg.R2AccessKey, cfg.R2SecretAccessKey, cfg.R2BucketName, cfg.R2PublicDomain)
 	if err != nil {
