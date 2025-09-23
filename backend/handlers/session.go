@@ -42,11 +42,13 @@ type SessionsListResponse struct {
 
 type SessionHandler struct {
 	sessionService *services.SessionService
+	eventService   *services.EventService
 }
 
-func NewSessionHandler(sessionService *services.SessionService) *SessionHandler {
+func NewSessionHandler(sessionService *services.SessionService, eventService *services.EventService) *SessionHandler {
 	return &SessionHandler{
 		sessionService: sessionService,
+		eventService:   eventService,
 	}
 }
 
@@ -61,13 +63,13 @@ func (h *SessionHandler) CreateSession(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	// First, get the event by code to validate it exists and is active
-	// This could be done in the service layer, but we'll handle it here for clarity
-	// In a real implementation, you might want to move this logic to the service
+	// Get the event by code to validate it exists and is active
+	event, err := h.eventService.GetEventByCode(c.Request().Context(), req.EventCode)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "event not found or inactive: "+err.Error())
+	}
 
-	// For now, we'll assume the event code maps to an event ID
-	// This would typically involve another service call
-	eventID := uuid.New() // TODO: Replace with actual event lookup by code
+	eventID := event.ID
 
 	session, err := h.sessionService.CreateSession(c.Request().Context(), eventID, req.GuestName)
 	if err != nil {

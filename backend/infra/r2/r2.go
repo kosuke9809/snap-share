@@ -19,7 +19,14 @@ type R2Service struct {
 }
 
 func NewR2Service(accountID, accessKeyID, secretAccessKey, bucketName, publicDomain string) (*R2Service, error) {
-	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+	var endpoint string
+
+	// Use MinIO endpoint if accountID is "minio" (for local development)
+	if accountID == "minio" {
+		endpoint = "http://minio:9000"
+	} else {
+		endpoint = fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+	}
 
 	cfg := aws.Config{
 		Region:      "auto",

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -13,6 +14,15 @@ import (
 	"snapShare/infra/r2"
 	"snapShare/services"
 )
+
+// CustomValidator wraps the validator
+type CustomValidator struct {
+	validator *validator.Validate
+}
+
+func (cv *CustomValidator) Validate(i any) error {
+	return cv.validator.Struct(i)
+}
 
 func main() {
 	// Load configuration
@@ -27,6 +37,11 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	// Run database migrations
+	if err := database.Migrate(db); err != nil {
+		log.Fatal("Failed to migrate database:", err)
+	}
+
 	// Initialize R2 service
 	r2Service, err := r2.NewR2Service(cfg.R2AccountID, cfg.R2AccessKey, cfg.R2SecretAccessKey, cfg.R2BucketName, cfg.R2PublicDomain)
 	if err != nil {
@@ -39,12 +54,15 @@ func main() {
 	photoService := services.NewPhotoService(db, r2Service)
 
 	// Initialize handlers
-	sessionHandler := handlers.NewSessionHandler(sessionService)
+	sessionHandler := handlers.NewSessionHandler(sessionService, eventService)
 	eventHandler := handlers.NewEventHandler(eventService)
 	photoHandler := handlers.NewPhotoHandler(photoService)
 
 	// Initialize Echo
 	e := echo.New()
+
+	// Set validator
+	e.Validator = &CustomValidator{validator: validator.New()}
 
 	// Middleware
 	e.Use(middleware.Logger())
@@ -63,9 +81,10 @@ func main() {
 	api.POST("/events", eventHandler.CreateEvent)
 	api.GET("/events/:code", eventHandler.GetEventByCode)
 
-	// Photo routes (using actual handler methods)
-	api.POST("/photos/upload-url", photoHandler.GenerateUploadURL)
-	api.POST("/photos/confirm/:id", photoHandler.ConfirmUpload)
+	// Photo routes (using actual handler methods) - require authentication
+	photoAPI := api.Group("/photos", sessionHandler.AuthMiddleware())
+	photoAPI.POST("/upload-url", photoHandler.GenerateUploadURL)
+	photoAPI.POST("/confirm/:id", photoHandler.ConfirmUpload)
 
 	// Health check
 	e.GET("/health", func(c echo.Context) error {
