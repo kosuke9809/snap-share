@@ -68,6 +68,19 @@ func (r *R2Service) GeneratePresignedDeleteURL(ctx context.Context, key string, 
 	return req.URL, nil
 }
 
+func (r *R2Service) GeneratePresignedDownloadURL(ctx context.Context, key string, duration time.Duration) (string, error) {
+	req, err := r.presigner.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = duration
+	})
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
+}
+
 func (r *R2Service) GetPublicURL(key string) string {
 	// Remove leading slash if present
 	key = strings.TrimPrefix(key, "/")
