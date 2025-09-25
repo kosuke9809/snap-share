@@ -20,12 +20,15 @@ type R2Service struct {
 
 func NewR2Service(accountID, accessKeyID, secretAccessKey, bucketName, publicDomain string) (*R2Service, error) {
 	var endpoint string
+	var presignerEndpoint string
 
 	// Use MinIO endpoint if accountID is "minio" (for local development)
 	if accountID == "minio" {
-		endpoint = "http://minio:9000"
+		endpoint = "http://minio:9000"          // For server-side operations
+		presignerEndpoint = "http://localhost:9000" // For presigned URLs accessible from browser
 	} else {
 		endpoint = fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+		presignerEndpoint = endpoint // Same endpoint for production
 	}
 
 	cfg := aws.Config{
@@ -38,7 +41,18 @@ func NewR2Service(accountID, accessKeyID, secretAccessKey, bucketName, publicDom
 		o.UsePathStyle = true
 	})
 
-	presigner := s3.NewPresignClient(client)
+	// Create separate client for presigner with external endpoint
+	presignerConfig := aws.Config{
+		Region:      "auto",
+		Credentials: credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
+	}
+
+	presignerClient := s3.NewFromConfig(presignerConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(presignerEndpoint)
+		o.UsePathStyle = true
+	})
+
+	presigner := s3.NewPresignClient(presignerClient)
 
 	return &R2Service{
 		client:       client,
