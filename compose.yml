@@ -56,6 +56,19 @@ services:
       - ./backend:/app
     working_dir: /app
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   minio_data:
